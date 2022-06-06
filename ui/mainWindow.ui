@@ -164,9 +164,6 @@ background: white;
             </property>
            </widget>
           </item>
-          <item row="0" column="1">
-           <widget class="QLineEdit" name="portfolio_lineEdit"/>
-          </item>
           <item row="2" column="0">
            <widget class="QLabel" name="doc_tag">
             <property name="text">
@@ -213,6 +210,9 @@ background: white;
              <string>TRESHOLD</string>
             </property>
            </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QComboBox" name="portfolio_comboBox"/>
           </item>
          </layout>
         </widget>
@@ -305,9 +305,9 @@ background: white;
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_4">
              <item>
-              <widget class="QPushButton" name="pause_resume_botton">
+              <widget class="QPushButton" name="save_botton">
                <property name="text">
-                <string>Pause / Resume</string>
+                <string>SAVE</string>
                </property>
               </widget>
              </item>

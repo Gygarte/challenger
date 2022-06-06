@@ -1,8 +1,15 @@
 import pandas as pd
-
+import os
+from pathlib import Path
 from PyQt5 import QtWidgets
 from ui.mainWindow import Ui_MainWindow
 from setting import DOC, DATABASE, OUTPUT
+
+
+def readInputFileSheets(path_to_directory: str) -> list:
+    df = pd.ExcelFile(os.path.join(Path(path_to_directory).resolve(), DOC))
+
+    return df.sheet_names
 
 
 # It creates a class called MainWindow that inherits from QMainWindow.
@@ -16,7 +23,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.add_botton.clicked.connect(lambda: self.addSignToDict())
         self.window.delete_botton.clicked.connect(lambda: self.deleteSignFromDict())
         self.window.run_botton.clicked.connect(lambda: self.callRunFunction())
-        self.window.pause_resume_botton.clicked.connect(lambda: self.callPauseResumeFunction())
+        self.window.save_botton.clicked.connect(lambda: self.callPauseResumeFunction())
         self.window.select_input_path_button.clicked.connect(lambda: self.callSelectInputFolderDialog())
 
         # display default values from setting into corresponding fields
@@ -54,6 +61,10 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         input_directory_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Input Directory')
 
+        input_sheets = readInputFileSheets(input_directory_path)
+
+        self.window.portfolio_comboBox.addItems(input_sheets)
+
         self.window.input_lineEdit.setText(input_directory_path)
 
     def readInputLineEdit(self) -> str:
@@ -71,12 +82,12 @@ class MainWindow(QtWidgets.QMainWindow):
             return input_element
 
     def readPortfolioLineEdit(self) -> str:
-        input_element = self.window.portfolio_lineEdit.text()
-
+        input_element = self.window.portfolio_comboBox.currentText()
+        print(input_element)
         if input_element in "":
-            self.setErrorColor(self.window.portfolio_lineEdit)
+            self.setErrorColor(self.window.input_lineEdit)
         else:
-            self.resetErrorColor(self.window.portfolio_lineEdit)
+            self.resetErrorColor(self.window.input_lineEdit)
             return input_element
 
     @staticmethod
