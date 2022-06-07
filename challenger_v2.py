@@ -5,12 +5,12 @@ import logging as log
 import statsmodels.api as smt
 
 #developer imports
-from ui.progress_bar import progress_bar
+
 #from ui.portfolio_selector import frame
 from import_handler import import_databases
 from signs_filter import signs_filter
 from directory_selector import directory_selector_dialog
-from setting import PORTFOLIO, DOC, DATABASE, OUTPUT, TRESHOLD, STOP_FILTER, SIGN_DICT
+from setting import PORTFOLIO, DOC, DATABASE, OUTPUT, TRESHOLD, STOP_FILTER
 
 
 #constants
@@ -129,7 +129,7 @@ def correlation_filter(dependent_var: list, independent_var: list, dep_dataset: 
     return duplicity_filter(cor_list)
 
 
-def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict) -> pd.DataFrame:
+def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict, sign_dict: dict) -> pd.DataFrame:
     """
     It takes a dependent and independent dataset, and a dictionary of variables, and returns a dataframe
     with the results of the univariate regression analysis
@@ -140,7 +140,6 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
     variable, and the values are the independent variables
     :return: A dataframe with the results of the univariate model.
     """
-    global SIGN_DICT
     print("Uni Model builder Initialized...")
 
     uni_model = pd.DataFrame({"Model Dependent":[], "Model Independent":[], "Adj. R-Squared":[],"AIC":[], "F P-value":[], 
@@ -154,7 +153,7 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
         for independent in values:
             
             l = len(values)
-            progress_bar(cicle, l)
+
 
             y_train = dep_dataset[dependent]
             x_train = ind_dataset[independent]
@@ -164,7 +163,7 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
                 
                 
             model = smt.OLS(y_train, x_train).fit()
-            sign = signs_filter(SIGN_DICT, model.params.tolist()[1], independent)
+            sign = signs_filter(sign_dict, model.params.tolist()[1], independent)
 
             uni_model = uni_model.append({"Model Dependent":dependent, "Model Independent":independent, "Adj. R-Squared":model.rsquared_adj, "AIC":model.aic, 
                                     "F P-value":model.f_pvalue, "Intercept":model.params.tolist()[0],"Intercept pvalue":model.pvalues.tolist()[0],
@@ -172,7 +171,7 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
             cicle += 1
     return uni_model
 
-def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict) -> pd.DataFrame:
+def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict, sign_dict: dict) -> pd.DataFrame:
     """
     It takes a dependent variable, an independent variable and a dictionary of variables as input and
     returns a dataframe with the results of the regression
@@ -198,7 +197,7 @@ def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict)
         for independent in ind:
 
             l = len(ind)
-            progress_bar(cicle, l)
+
 
             for independent_2 in ind:
                 if existance_tester(independent_2, independent) == False:
@@ -212,8 +211,8 @@ def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict)
                 
                     model = smt.OLS(y_train, x_train).fit()
 
-                    sign1 = signs_filter(SIGN_DICT, model.params.tolist()[1], independent)
-                    sign2 = signs_filter(SIGN_DICT, model.params.tolist()[2], independent_2)
+                    sign1 = signs_filter(sign_dict, model.params.tolist()[1], independent)
+                    sign2 = signs_filter(sign_dict, model.params.tolist()[2], independent_2)
 
 
                     bi_model = bi_model.append({"Model Dependent":dependent,"Model Independent1":independent,"Model Independent2":independent_2, "Adj. R-Squared":model.rsquared_adj, "AIC":model.aic, 
@@ -225,14 +224,14 @@ def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict)
     return bi_model
 
 
-def main():
+def main(DOC, PORTFOLIO, DATABASE, TRESHOLD, STOP_FILTER, PATH, SIGN_DICT):
     """
     It imports the data, cleans it, and then builds a univariate and bivariate model.
     """
-    global DOC, PORTFOLIO, DATABASE, TRESHOLD, STOP_FILTER
+
     log.basicConfig(level = log.INFO, filename="out.log", filemode="w")
 
-    PATH = directory_selector_dialog()
+
 
     port, portfolio_data, macro_data, macro_col = import_databases(PATH, DOC, PORTFOLIO, DATABASE)
     
@@ -243,12 +242,12 @@ def main():
 
     try:
         variables_dict = correlation_filter(dependent_var, macro_col, portfolio_data, macro_data, TRESHOLD, STOP_FILTER )
-        uni_model = uni_model_builder(response, macro_data, variables_dict)
-        bi_model = bi_model_builder(response, macro_data, variables_dict)
+        uni_model = uni_model_builder(response, macro_data, variables_dict, SIGN_DICT)
+        bi_model = bi_model_builder(response, macro_data, variables_dict, SIGN_DICT)
     except:
         variables_dict = correlation_filter(dependent_var, macro_col, portfolio_data, macro_data, TRESHOLD, STOP_FILTER )
-        uni_model = uni_model_builder(response, macro_data, variables_dict)
-        bi_model = bi_model_builder(response, macro_data, variables_dict)
+        uni_model = uni_model_builder(response, macro_data, variables_dict, SIGN_DICT)
+        bi_model = bi_model_builder(response, macro_data, variables_dict, SIGN_DICT)
 
 
     workbook = pd.ExcelWriter(PATH + OUTPUT)

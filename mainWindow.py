@@ -3,7 +3,8 @@ import os
 from pathlib import Path
 from PyQt5 import QtWidgets
 from ui.mainWindow import Ui_MainWindow
-from setting import DOC, DATABASE, OUTPUT
+from setting import DOC, DATABASE, OUTPUT, TRESHOLD, STOP_FILTER
+from challenger_v2 import main
 
 
 def readInputFileSheets(path_to_directory: str) -> list:
@@ -48,8 +49,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.sign_table.removeRow(row_number)
 
     def callRunFunction(self) -> None:
-        input_folder = self.readInputLineEdit()
+        input_folder = self.readInputLineEdit(),
         portfolio = self.readPortfolioLineEdit()
+        sign_dict = self.readSignTable()
+        print(sign_dict)
+
+        main(DOC, portfolio, DATABASE, TRESHOLD, STOP_FILTER, input_folder, sign_dict)
 
     def callPauseResumeFunction(self) -> None:
         pass
@@ -90,6 +95,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.resetErrorColor(self.window.input_lineEdit)
             return input_element
 
+    def readSignTable(self) -> dict:
+        sign_dict = {}
+        for row_index in range(self.window.sign_table.rowCount()):
+            variable = self.window.sign_table.item(row_index, 0).text()
+            sign = int(self.window.sign_table.item(row_index, 1).text())
+
+            sign_dict.update({variable: sign})
+        return sign_dict
+
     @staticmethod
     def setErrorColor(element) -> None:
         """
@@ -106,4 +120,4 @@ class MainWindow(QtWidgets.QMainWindow):
         
         :param element: The element to change the color of
         """
-        element.setStyleSheet('background-color:rgb(0,0,0);')
+        element.setStyleSheet('background-color:rgb(255,255,255);')
