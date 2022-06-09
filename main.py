@@ -1,21 +1,30 @@
-from challenger_v2 import main
+from challenger_v2 import *
+from import_handler import *
+from pathlib import Path
 
-""" 
-@@@ Challenger script verison 2  @@@
 
-This script is ment to offer a reliable way of building challenger models from a pool of varibles.
+def main(path_to_input: Path, stationary_doc: str, portfolio_name: str, input_database: str, sign_dict: dict,
+         treshold: float, stop_filter: bool) -> tuple:
+    """
+    It imports the data, cleans it, and then builds a univariate and bivariate model.
+    """
 
-It accepts as inputs dependent variables from a file named "Rezultate teste stationaritate.xls". Each
-sheet coresponds to a portfolio. The time seris coresponding to the said dependent variables are took
-from a file names "input.xlsx", sheet "input". 
+    port, portfolio_data, macro_data, macro_col = import_databases(path_to_input, stationary_doc, portfolio_name,
+                                                                   input_database)
 
-The independent variables are took from the "input.xlsx" sheet "macro". It is necessary that all macro 
-vartiables to be stationary. Auto-selection of stationary macro variables will be implemented later.
+    dependent_var, drop_var = select_stationary_dep(port)
+    # frame(list(port.keys()))
+    response = clean_nonstationary(drop_var, portfolio_data)  # de scos
 
-The output consists of file "output.xlsx" containing 2 sheets for each type of model built.
- 
+    try:
+        variables_dict = correlation_filter(dependent_var, macro_col, portfolio_data, macro_data, treshold, stop_filter)
+        uni_model = uni_model_builder(response, macro_data, variables_dict, sign_dict)
+        bi_model = bi_model_builder(response, macro_data, variables_dict, sign_dict)
+    except Exception:
+        variables_dict = correlation_filter(dependent_var, macro_col, portfolio_data, macro_data, treshold, stop_filter)
+        uni_model = uni_model_builder(response, macro_data, variables_dict, sign_dict)
+        bi_model = bi_model_builder(response, macro_data, variables_dict, sign_dict)
 
-"""
+    print("Done processing model! Please save!")
 
-if __name__ == "__main__":
-    main()
+    return (uni_model, bi_model)

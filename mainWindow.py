@@ -1,16 +1,25 @@
+from typing import List
+from logging import log, INFO,DEBUG, basicConfig
 import pandas as pd
 import os
 from pathlib import Path
 from PyQt5 import QtWidgets
 from ui.mainWindow import Ui_MainWindow
-from setting import DOC, DATABASE, OUTPUT, TRESHOLD, STOP_FILTER
-from challenger_v2 import main
+# TODO: Setarile privind numele documentelor de input, ar trebui sa fie salvate automat intr-un fisier de configuratie
+from setting import DOC, DATABASE, OUTPUT
+from main import main
+from excel_saver import save_to_excel
+
+basicConfig(level=INFO, filename="out.log", filemode="w")
 
 
-def readInputFileSheets(path_to_directory: str) -> list:
-    df = pd.ExcelFile(os.path.join(Path(path_to_directory).resolve(), DOC))
-
-    return df.sheet_names
+def readInputFileSheets(path_to_directory: Path) -> List[str]:
+    try:
+        log(DEBUG, "The path to input directory is: {}".format(path_to_directory))
+        df = pd.ExcelFile(os.path.join(path_to_directory, DOC))
+        return df.sheet_names
+    except (FileNotFoundError, ValueError):
+        return ["No sheet!"]
 
 
 # It creates a class called MainWindow that inherits from QMainWindow.
@@ -20,11 +29,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window = Ui_MainWindow()
         self.window.setupUi(self)
 
+        self._call_return = None
+
         self.window.exit_botton.clicked.connect(lambda: self.close())
         self.window.add_botton.clicked.connect(lambda: self.addSignToDict())
         self.window.delete_botton.clicked.connect(lambda: self.deleteSignFromDict())
         self.window.run_botton.clicked.connect(lambda: self.callRunFunction())
-        self.window.save_botton.clicked.connect(lambda: self.callPauseResumeFunction())
+        self.window.save_botton.clicked.connect(lambda: self.callSaveFunction())
         self.window.select_input_path_button.clicked.connect(lambda: self.callSelectInputFolderDialog())
 
         # display default values from setting into corresponding fields
@@ -49,15 +60,52 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.sign_table.removeRow(row_number)
 
     def callRunFunction(self) -> None:
-        input_folder = self.readInputLineEdit(),
+        path_to_input_folder = self.readInputFolderLineEdit()
+
         portfolio = self.readPortfolioLineEdit()
         sign_dict = self.readSignTable()
-        print(sign_dict)
+        # TODO: make the stationary_document name changeable
+        stationary_document = self.readStationaryDocumentLineEdit()
+        input_database = self.readInputDatabaseLineEdit()
+        treshold = self.readTresholdLineEdit()
+        stop_filter = self.window.filter_checkBox.isChecked()
 
-        main(DOC, portfolio, DATABASE, TRESHOLD, STOP_FILTER, input_folder, sign_dict)
+        log(INFO, """Path to input: {}
+              Portfolio: {}
+              Sign_dict: {}
+              Stationarity: {}
+              Input Database: {}
+              Treshold: {}
+              Stop Filter: {}""".format(path_to_input_folder, portfolio, sign_dict, stationary_document,
+                                        input_database, treshold, stop_filter))
 
-    def callPauseResumeFunction(self) -> None:
-        pass
+        # TODO:Make an exception window for when you press RUN by mistake
+        # TODO: Find another way than try-except
+        try:
+            self._call_return = main(path_to_input_folder, stationary_document, portfolio, input_database,
+                                     sign_dict, treshold, stop_filter)
+        except Exception:
+            return None
+
+    def callSaveFunction(self) -> None:
+        # TODO: Create a popup to raise attention when trying to save an unexisting file, or the path is not specified
+        if self._call_return is None:
+            log(INFO, "Attempt to save a file that does not exists!")
+
+        if self.readOutputFolderLineEdit() is None:
+            log(INFO, "Attempt to save a file to an unspecified location!")
+            return None
+
+        if self.window.select_output_path_checkBox.isChecked():
+            path_to_output_folder = self.readInputFolderLineEdit()
+        else:
+            path_to_output_folder = self.readOutputFolderLineEdit()
+
+        output_name = self.readOutputNameLineEdit()
+
+        log(INFO, "Pat to save: {}, name to save: {}".format(path_to_output_folder, output_name))
+
+        save_to_excel(self._call_return, path_to_output_folder, output_name)
 
     def callSelectInputFolderDialog(self) -> None:
         """
@@ -72,7 +120,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.window.input_lineEdit.setText(input_directory_path)
 
-    def readInputLineEdit(self) -> str:
+    def readInputFolderLineEdit(self) -> Path:
         """
         If the input_lineEdit is empty, set the error color, otherwise reset the error color and return
         the input_lineEdit text
@@ -84,7 +132,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.setErrorColor(self.window.input_lineEdit)
         else:
             self.resetErrorColor(self.window.input_lineEdit)
-            return input_element
+            return Path(input_element).resolve(True)
+
+    def readOutputFolderLineEdit(self) -> Path:
+        input_element = self.window.output_lineEdit.text()
+
+        if input_element in "":
+            self.setErrorColor(self.window.input_lineEdit)
+        else:
+            self.resetErrorColor(self.window.input_lineEdit)
+            return Path(input_element).resolve(True)
 
     def readPortfolioLineEdit(self) -> str:
         input_element = self.window.portfolio_comboBox.currentText()
@@ -103,6 +160,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
             sign_dict.update({variable: sign})
         return sign_dict
+
+    def readStationaryDocumentLineEdit(self) -> str:
+        return self.window.doc_lineEdit.text()
+
+    def readInputDatabaseLineEdit(self) -> str:
+        return self.window.database_lineEdit.text()
+
+    def readTresholdLineEdit(self) -> float:
+        value_field = self.window.treshold_lineEdit.text()
+        if value_field in "":
+            return 0.5
+        else:
+            return float(value_field)
+
+    def readOutputNameLineEdit(self) -> str:
+        return self.window.output_name_lineEdit.text()
+
+    def updateProgressBar(self) -> None:
+        pass
 
     @staticmethod
     def setErrorColor(element) -> None:

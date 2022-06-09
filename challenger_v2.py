@@ -1,35 +1,20 @@
-#embeded imports
+from typing import Dict, Any, List
+from progress_bar import progress_bar
 import numpy as np
 import pandas as pd
-import logging as log
 import statsmodels.api as smt
-
-#developer imports
-
-#from ui.portfolio_selector import frame
-from import_handler import import_databases
 from signs_filter import signs_filter
-from directory_selector import directory_selector_dialog
-from setting import PORTFOLIO, DOC, DATABASE, OUTPUT, TRESHOLD, STOP_FILTER
-
-
-#constants
-SIGNS = {"GDP":-1,"xUR":+1, "UNEMP":+1, "INFL":+1, "EURIBOR":+1, "ROBOR":+1, "EURRON":+1, "PRIVATE_CONS":-1}
-
-#class for errors
-class ProcedureError(Exception):
-    pass
-
 
 
 """IMPROVEMENT TO DO: make selecting the files path and portfolios through a GUI """
 
-#function to select only the stationary dependent variables from the file provided
+
+# function to select only the stationary dependent variables from the file provided
 def select_stationary_dep(port):
     """
     @@@ Selects the stationary variables from the database @@@
 
-    @@  Native only for versions that use pre-selection of statioanry variables
+    @@  Native only for versions that request user to pre-determine stationarity @@@
     
     @INPUT:
         port     - Required : database containing statioanry variables                  (pandas.DataFrame)
@@ -48,7 +33,7 @@ def select_stationary_dep(port):
     return dep_var, drop_var
 
 
-#clearing the portfolio data from non-stationary variables
+# clearing the portfolio data from non-stationary variables
 def clean_nonstationary(drop_col, data):
     """
     If the column exists, drop it. If it doesn't exist, return the dataframe.
@@ -63,6 +48,7 @@ def clean_nonstationary(drop_col, data):
     except:
         return data
 
+
 def existance_tester(ind, ind_2):
     """
     It takes two strings, and returns True if the first string contains the first word of the second
@@ -72,18 +58,21 @@ def existance_tester(ind, ind_2):
     :param ind_2: the string that you want to check if it's in ind
     :return: A boolean value.
     """
-    return(ind_2.split("_")[0] in ind.split("_")[0])
+    return (ind_2.split("_")[0] in ind.split("_")[0])
+
 
 def duplicity_filter(cor_list):
     cor = {}
     for key, value in cor_list.items():
-        
         final = list(dict.fromkeys(value))
-        
-        cor.update({key:final})
+
+        cor.update({key: final})
     return cor
-#correlation filter
-def correlation_filter(dependent_var: list, independent_var: list, dep_dataset: list, ind_dataset: list, treshold: float, stop_filter: bool =False ) -> list:
+
+
+# correlation filter
+def correlation_filter(dependent_var: list, independent_var: list, dep_dataset: list, ind_dataset: list,
+                       treshold: float, stop_filter: bool = False) -> Dict[Any, List[Any]]:
     """
     @@@ Filter the lists of dependent and independent variables using correlation between @@@
 
@@ -103,29 +92,29 @@ def correlation_filter(dependent_var: list, independent_var: list, dep_dataset: 
 
     cor_list = {}
     spam = []
-    #appending the list of correlated variables above the treshold to the dictionary
-    #the key is the dependent variables with which the independent is correlated
-    if stop_filter == True:
+    # appending the list of correlated variables above the treshold to the dictionary
+    # the key is the dependent variables with which the independent is correlated
+    if stop_filter:
         for dependent in dependent_var:
             for independent in independent_var:
                 spam.append(independent)
-            cor_list.update({dependent:spam})
-            
+            cor_list.update({dependent: spam})
+
         return duplicity_filter(cor_list)
 
     for dependent in dependent_var:
         for independent in independent_var:
-            
+
             corelation = np.corrcoef(dep_dataset[dependent], ind_dataset[independent])[0][1]
             corelation = round(corelation, 4)
-            
-            if abs(corelation) >= treshold:
-                spam.append(independent)    
 
-        cor_list.update({dependent:spam}) 
-    
-    #filtering for double values
-    
+            if abs(corelation) >= treshold:
+                spam.append(independent)
+
+        cor_list.update({dependent: spam})
+
+        # filtering for double values
+
     return duplicity_filter(cor_list)
 
 
@@ -142,34 +131,34 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
     """
     print("Uni Model builder Initialized...")
 
-    uni_model = pd.DataFrame({"Model Dependent":[], "Model Independent":[], "Adj. R-Squared":[],"AIC":[], "F P-value":[], 
-                                "Intercept":[],"Intercept pvalue":[], "Indep":[],"Indep pvalue":[], "Sign":[]})
+    uni_model = pd.DataFrame(
+        {"Model Dependent": [], "Model Independent": [], "Adj. R-Squared": [], "AIC": [], "F P-value": [],
+         "Intercept": [], "Intercept pvalue": [], "Indep": [], "Indep pvalue": [], "Sign": []})
 
-    
     for dependent, values in variables_dict.items():
 
         print("Current dependent {0}".format(dependent))
         cicle = 1
         for independent in values:
-            
-            l = len(values)
-
-
             y_train = dep_dataset[dependent]
             x_train = ind_dataset[independent]
             x_train = smt.add_constant(x_train)
-            #x_train = np.asarray(x_train)
-                
-                
-                
+            # x_train = np.asarray(x_train)
+
             model = smt.OLS(y_train, x_train).fit()
             sign = signs_filter(sign_dict, model.params.tolist()[1], independent)
-
-            uni_model = uni_model.append({"Model Dependent":dependent, "Model Independent":independent, "Adj. R-Squared":model.rsquared_adj, "AIC":model.aic, 
-                                    "F P-value":model.f_pvalue, "Intercept":model.params.tolist()[0],"Intercept pvalue":model.pvalues.tolist()[0],
-                                    "Indep":model.params.tolist()[1], "Indep pvalue":model.pvalues.tolist()[1], "Sign":sign}, ignore_index=True)
+            print("Curent dependent variable: {} with current independent [{}]".format(dependent,
+                                                                                           independent))
+            uni_model = uni_model.concat(
+                {"Model Dependent": dependent, "Model Independent": independent, "Adj. R-Squared": model.rsquared_adj,
+                 "AIC": model.aic,
+                 "F P-value": model.f_pvalue, "Intercept": model.params.tolist()[0],
+                 "Intercept pvalue": model.pvalues.tolist()[0],
+                 "Indep": model.params.tolist()[1], "Indep pvalue": model.pvalues.tolist()[1], "Sign": sign},
+                ignore_index=True)
             cicle += 1
     return uni_model
+
 
 def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict, sign_dict: dict) -> pd.DataFrame:
     """
@@ -185,83 +174,47 @@ def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict,
 
     print("Bi Model builder Initialized...")
 
-    bi_model = pd.DataFrame({"Model Dependent":[], "Model Independent1":[], "Model Independent2":[], "Adj. R-Squared":[],"AIC":[], "F P-value":[], 
-                        "Intercept":[],"Intercept pvalue":[],  "Indep":[],"Indep pvalue":[], "Indep 2":[], "Indep 2 pvalue":[], "Sign Indep 1":[],
-                         "Sign Indep 2":[]})
+    bi_model = pd.DataFrame(
+        {"Model Dependent": [], "Model Independent1": [], "Model Independent2": [], "Adj. R-Squared": [], "AIC": [],
+         "F P-value": [],
+         "Intercept": [], "Intercept pvalue": [], "Indep": [], "Indep pvalue": [], "Indep 2": [], "Indep 2 pvalue": [],
+         "Sign Indep 1": [],
+         "Sign Indep 2": []})
 
     for dependent, ind in variables_dict.items():
 
         print("Current dependent {0}".format(dependent))
         cicle = 1
-        
+
         for independent in ind:
 
             l = len(ind)
-
-
+            #progress_bar(cicle, l)
             for independent_2 in ind:
-                if existance_tester(independent_2, independent) == False:
-                    #print(independent_2)
+                if not existance_tester(independent_2, independent):
+                    # print(independent_2)
                     y_train = dep_dataset[dependent]
                     x_train = ind_dataset[[independent, independent_2]]
                     x_train = smt.add_constant(x_train)
-                    #x_train = np.asarray(x_train)
-                
-                
-                
-                    model = smt.OLS(y_train, x_train).fit()
+                    # x_train = np.asarray(x_train)
 
+                    model = smt.OLS(y_train, x_train).fit()
+                    print("Curent dependent variable: {} with current independent [{}, {}]".format(dependent,
+                                                                                                   independent,
+                                                                                                   independent_2))
                     sign1 = signs_filter(sign_dict, model.params.tolist()[1], independent)
                     sign2 = signs_filter(sign_dict, model.params.tolist()[2], independent_2)
 
-
-                    bi_model = bi_model.append({"Model Dependent":dependent,"Model Independent1":independent,"Model Independent2":independent_2, "Adj. R-Squared":model.rsquared_adj, "AIC":model.aic, 
-                                    "F P-value":model.f_pvalue, "Intercept":model.params.tolist()[0],"Intercept pvalue":model.pvalues.tolist()[0],
-                                    "Indep":model.params.tolist()[1], "Indep pvalue":model.pvalues.tolist()[1], 
-                                            "Indep 2":model.params.tolist()[2], "Indep 2 pvalue":model.pvalues.tolist()[2], "Sign Indep 1":sign1,
-                                            "Sign Indep 2":sign2 }, ignore_index=True)
+                    bi_model = bi_model.concat({"Model Dependent": dependent, "Model Independent1": independent,
+                                                "Model Independent2": independent_2,
+                                                "Adj. R-Squared": model.rsquared_adj, "AIC": model.aic,
+                                                "F P-value": model.f_pvalue, "Intercept": model.params.tolist()[0],
+                                                "Intercept pvalue": model.pvalues.tolist()[0],
+                                                "Indep": model.params.tolist()[1],
+                                                "Indep pvalue": model.pvalues.tolist()[1],
+                                                "Indep 2": model.params.tolist()[2],
+                                                "Indep 2 pvalue": model.pvalues.tolist()[2], "Sign Indep 1": sign1,
+                                                "Sign Indep 2": sign2}, ignore_index=True)
             cicle += 1
     return bi_model
-
-
-def main(DOC, PORTFOLIO, DATABASE, TRESHOLD, STOP_FILTER, PATH, SIGN_DICT):
-    """
-    It imports the data, cleans it, and then builds a univariate and bivariate model.
-    """
-
-    log.basicConfig(level = log.INFO, filename="out.log", filemode="w")
-
-
-
-    port, portfolio_data, macro_data, macro_col = import_databases(PATH, DOC, PORTFOLIO, DATABASE)
-    
-
-    dependent_var, drop_var = select_stationary_dep(port)
-    #frame(list(port.keys()))
-    response = clean_nonstationary(drop_var, portfolio_data) #de scos
-
-    try:
-        variables_dict = correlation_filter(dependent_var, macro_col, portfolio_data, macro_data, TRESHOLD, STOP_FILTER )
-        uni_model = uni_model_builder(response, macro_data, variables_dict, SIGN_DICT)
-        bi_model = bi_model_builder(response, macro_data, variables_dict, SIGN_DICT)
-    except:
-        variables_dict = correlation_filter(dependent_var, macro_col, portfolio_data, macro_data, TRESHOLD, STOP_FILTER )
-        uni_model = uni_model_builder(response, macro_data, variables_dict, SIGN_DICT)
-        bi_model = bi_model_builder(response, macro_data, variables_dict, SIGN_DICT)
-
-
-    workbook = pd.ExcelWriter(PATH + OUTPUT)
-    #pd.DataFrame(variables_dict).to_excel(workbook, sheet_name="Variables Dict")
-    uni_model.to_excel(workbook, sheet_name="Uni Models")
-    bi_model.to_excel(workbook, sheet_name= "Bi models")
-
-    workbook.close()
-
-    print("Done!")
-
-    
-def combinations_of_variables():
-    pass
-
-
 

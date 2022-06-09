@@ -1,9 +1,9 @@
 import pandas as pd
 import os
-from typing import Union
+from pathlib import Path
 
-def import_databases(PATH: str, DOC: str, PORTFOLIO: str, DATABASE: pd.DataFrame):
 
+def import_databases(PATH: Path, DOC: str, PORTFOLIO: str, DATABASE: str):
     """
     @@@ Call in pandas functions to read the database (excell filetype) @@@
 
@@ -22,8 +22,8 @@ def import_databases(PATH: str, DOC: str, PORTFOLIO: str, DATABASE: pd.DataFrame
     
     """
 
-    port = pd.read_excel(os.path.join(PATH, DOC), sheet_name = PORTFOLIO)
-    portfolio_data = pd.read_excel(os.path.join(PATH, DATABASE), sheet_name= "input")
+    port = pd.read_excel(os.path.join(PATH, DOC), sheet_name=PORTFOLIO)
+    portfolio_data = pd.read_excel(os.path.join(PATH, DATABASE), sheet_name="input")
     macro_data = pd.read_excel(os.path.join(PATH, DATABASE), sheet_name="macro")
     macro_col = macro_data.columns.values.tolist()
 
