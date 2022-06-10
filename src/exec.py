@@ -1,9 +1,9 @@
-from challenger_v2 import main
+from challenger.challenger_v2 import main
 
 """ 
 @@@ Challenger script verison 2  @@@
 
-This script is ment to offer a reliable way of building challenger models from a pool of varibles.
+This script is ment to offer a reliable way of building src models from a pool of varibles.
 
 It accepts as inputs dependent variables from a file named "Rezultate teste stationaritate.xls". Each
 sheet coresponds to a portfolio. The time seris coresponding to the said dependent variables are took

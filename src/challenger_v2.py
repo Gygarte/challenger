@@ -1,10 +1,8 @@
 from typing import Dict, Any, List
-from progress_bar import progress_bar
 import numpy as np
 import pandas as pd
 import statsmodels.api as smt
-from signs_filter import signs_filter
-
+from .signs_filter import signs_filter
 
 """IMPROVEMENT TO DO: make selecting the files path and portfolios through a GUI """
 
@@ -123,6 +121,7 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
     It takes a dependent and independent dataset, and a dictionary of variables, and returns a dataframe
     with the results of the univariate regression analysis
     
+    :param sign_dict:
     :param dep_dataset: the dataframe containing the dependent variables
     :param ind_dataset: the independent variables dataset
     :param variables_dict: a dictionary of the variables you want to test. The key is the dependent
@@ -140,6 +139,7 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
         print("Current dependent {0}".format(dependent))
         cicle = 1
         for independent in values:
+
             y_train = dep_dataset[dependent]
             x_train = ind_dataset[independent]
             x_train = smt.add_constant(x_train)
@@ -148,8 +148,8 @@ def uni_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict
             model = smt.OLS(y_train, x_train).fit()
             sign = signs_filter(sign_dict, model.params.tolist()[1], independent)
             print("Curent dependent variable: {} with current independent [{}]".format(dependent,
-                                                                                           independent))
-            uni_model = uni_model.concat(
+                                                                                      independent))
+            uni_model = uni_model.append(
                 {"Model Dependent": dependent, "Model Independent": independent, "Adj. R-Squared": model.rsquared_adj,
                  "AIC": model.aic,
                  "F P-value": model.f_pvalue, "Intercept": model.params.tolist()[0],
@@ -189,7 +189,7 @@ def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict,
         for independent in ind:
 
             l = len(ind)
-            #progress_bar(cicle, l)
+            # progress_bar(cicle, l)
             for independent_2 in ind:
                 if not existance_tester(independent_2, independent):
                     # print(independent_2)
@@ -205,7 +205,7 @@ def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict,
                     sign1 = signs_filter(sign_dict, model.params.tolist()[1], independent)
                     sign2 = signs_filter(sign_dict, model.params.tolist()[2], independent_2)
 
-                    bi_model = bi_model.concat({"Model Dependent": dependent, "Model Independent1": independent,
+                    bi_model = bi_model.append({"Model Dependent": dependent, "Model Independent1": independent,
                                                 "Model Independent2": independent_2,
                                                 "Adj. R-Squared": model.rsquared_adj, "AIC": model.aic,
                                                 "F P-value": model.f_pvalue, "Intercept": model.params.tolist()[0],
@@ -217,4 +217,3 @@ def bi_model_builder(dep_dataset: list, ind_dataset: list, variables_dict: dict,
                                                 "Sign Indep 2": sign2}, ignore_index=True)
             cicle += 1
     return bi_model
-
