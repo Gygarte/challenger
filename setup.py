@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(
-    name='src',
-    version='3',
-    packages=['src', 'src.ui'],
+    name='challenger',
+    version='3.0',
+    packages=['challenger', 'challenger.gui'],
     url='',
     license='',
     author='Gabriel Artemie',

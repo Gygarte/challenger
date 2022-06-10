@@ -4,11 +4,11 @@ import pandas as pd
 import os
 from pathlib import Path
 from PyQt5 import QtWidgets
-from .gui.mainWindow import Ui_MainWindow
+from gui.mainWindow import Ui_MainWindow
 # TODO: Setarile privind numele documentelor de input, ar trebui sa fie salvate automat intr-un fisier de configuratie
-from .setting import DOC, DATABASE, OUTPUT
-from .main import main
-from .excel_saver import save_to_excel
+from setting import DOC, DATABASE, OUTPUT
+from main import main
+from excel_saver import save_to_excel
 
 basicConfig(level=INFO, filename="../out.log", filemode="w")
 

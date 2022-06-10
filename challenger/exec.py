@@ -1,9 +1,10 @@
-from challenger.challenger_v2 import main
-
+import sys
+from PyQt5 import QtWidgets
+from mainWindow import MainWindow
 """ 
 @@@ Challenger script verison 2  @@@
 
-This script is ment to offer a reliable way of building src models from a pool of varibles.
+This script is ment to offer a reliable way of building challenger models from a pool of varibles.
 
 It accepts as inputs dependent variables from a file named "Rezultate teste stationaritate.xls". Each
 sheet coresponds to a portfolio. The time seris coresponding to the said dependent variables are took
@@ -18,4 +19,9 @@ The output consists of file "output.xlsx" containing 2 sheets for each type of m
 """
 
 if __name__ == "__main__":
-    main()
+    app = QtWidgets.QApplication(sys.argv)
+
+    # apply_stylesheet(app, theme= "dark_amber.xml")
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
