@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 import numpy as np
 import pandas as pd
 import statsmodels.api as smt
-from signs_filter import signs_filter
+from challenger.signs_filter import signs_filter
 
 """IMPROVEMENT TO DO: make selecting the files path and portfolios through a GUI """
 

@@ -1,5 +1,5 @@
-from challenger_v2 import *
-from import_handler import *
+from challenger.challenger_v2 import *
+from challenger.import_handler import *
 from pathlib import Path
 
 
