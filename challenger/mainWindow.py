@@ -1,5 +1,5 @@
 from typing import List
-from logging import log, INFO,DEBUG, basicConfig
+from logging import log, INFO, DEBUG, basicConfig
 import pandas as pd
 import os
 from pathlib import Path
@@ -81,11 +81,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # TODO:Make an exception window for when you press RUN by mistake
         # TODO: Find another way than try-except
-        try:
-            self._call_return = main(path_to_input_folder, stationary_document, portfolio, input_database,
+        self._call_return = main(path_to_input_folder, stationary_document, portfolio, input_database,
                                      sign_dict, treshold, stop_filter)
-        except Exception:
-            return None
 
     def callSaveFunction(self) -> None:
         # TODO: Create a popup to raise attention when trying to save an unexisting file, or the path is not specified
@@ -170,9 +167,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def readTresholdLineEdit(self) -> float:
         value_field = self.window.treshold_lineEdit.text()
         if value_field in "":
-            return 0.5
+            return 1
         else:
-            return float(value_field)
+            return int(value_field)
 
     def readOutputNameLineEdit(self) -> str:
         return self.window.output_name_lineEdit.text()
@@ -197,3 +194,5 @@ class MainWindow(QtWidgets.QMainWindow):
         :param element: The element to change the color of
         """
         element.setStyleSheet('background-color:rgb(255,255,255);')
+
+

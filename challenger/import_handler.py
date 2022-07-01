@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 
-def import_databases(PATH: Path, DOC: str, PORTFOLIO: str, DATABASE: str):
+def import_databases_from_excel(PATH: Path, DOC: str, PORTFOLIO: str, DATABASE: str):
     """
     @@@ Call in pandas functions to read the database (excell filetype) @@@
 

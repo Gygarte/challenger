@@ -1,6 +1,7 @@
 import sys
 from PyQt5 import QtWidgets
 from challenger.mainWindow import MainWindow
+
 """ 
 @@@ Challenger script verison 2  @@@
 
