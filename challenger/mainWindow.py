@@ -10,7 +10,7 @@ from challenger.gui.mainWindow import Ui_MainWindow
 from challenger.logger_setup import setup_logger
 from challenger.excel_saver import save_to_excel
 from challenger.ExecuteSteps import ExecuteSteps
-
+from challenger.resource_path import resource_path
 
 def readInputFileSheets(path_to_directory: Union[Path, str], _log: logging.log, doc: str) -> List[str]:
     try:
@@ -50,7 +50,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # logging
         self._log = setup_logger("out", os.path.join(Path(__file__).resolve(True).parent, "out.log"))
 
-    _initial_setup_file_path = os.path.join(Path(__file__).resolve(True).parent, "basic_setup.json")
+    _initial_setup_file_path = resource_path("challenger/basic_setup.json")
 
     def addSignToDict(self) -> None:
         """
