@@ -18,7 +18,6 @@ def sign_filter(sign_dict: dict, model_coef: list, indep_var_combination: tuple)
                     result.append("Incorrect!")
     return result
 
-print(sign_filter({"A":-1, "B":-1}, [-0.0009, -0.01,0.222], ("A","B")))
 
 def compute_models(dependent_var: str, independent_var: tuple, data: pd.DataFrame,
                    intercept: int = 1):
@@ -72,10 +71,17 @@ def save_output(model_output, output_template: pd.DataFrame, sign_dict: dict) ->
     for index, value in enumerate(independent_var):
         add.append(model_coef[index + 1])
         add.append(model_pvalues[index + 1])
-        add.append(sign[index + 1])
+        #to solve the case when you dont put the coret sign dictionary
+        #if the curent independnet does not have a corespondence in sign_dict
+        #the sign dict does not produce an output for sign that are not in the dictionary
+        try:
+            add.append(sign[index])
+        except IndexError:
+            add.append("No sign available!")
 
     output_template.loc[len(output_template)] = add
     return output_template
 
 
 __all__ = ["save_output", "build_template", "compute_models"]
+
