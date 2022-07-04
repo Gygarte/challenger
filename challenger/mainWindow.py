@@ -1,22 +1,21 @@
-from typing import List
-from logging import log, INFO,DEBUG, basicConfig
+import logging
+import json
+from typing import List, Union
 import pandas as pd
 import os
 from pathlib import Path
 from PyQt5 import QtWidgets
-from ui.mainWindow import Ui_MainWindow
+from challenger.gui.mainWindow import Ui_MainWindow
 # TODO: Setarile privind numele documentelor de input, ar trebui sa fie salvate automat intr-un fisier de configuratie
-from setting import DOC, DATABASE, OUTPUT
-from main import main
-from excel_saver import save_to_excel
-
-basicConfig(level=INFO, filename="out.log", filemode="w")
+from challenger.logger_setup import setup_logger
+from challenger.excel_saver import save_to_excel
+from challenger.ExecuteSteps import ExecuteSteps
 
 
-def readInputFileSheets(path_to_directory: Path) -> List[str]:
+def readInputFileSheets(path_to_directory: Union[Path, str], _log: logging.log, doc: str) -> List[str]:
     try:
-        log(DEBUG, "The path to input directory is: {}".format(path_to_directory))
-        df = pd.ExcelFile(os.path.join(path_to_directory, DOC))
+        _log.info("The path to input directory is: {}".format(path_to_directory))
+        df = pd.ExcelFile(os.path.join(path_to_directory, doc))
         return df.sheet_names
     except (FileNotFoundError, ValueError):
         return ["No sheet!"]
@@ -39,9 +38,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.select_input_path_button.clicked.connect(lambda: self.callSelectInputFolderDialog())
 
         # display default values from setting into corresponding fields
-        self.window.doc_lineEdit.setText(DOC)
-        self.window.database_lineEdit.setText(DATABASE)
-        self.window.output_name_lineEdit.setText(OUTPUT)
+        self.loadInitialSetup()
+        # self.window.doc_lineEdit.setText(DOC)
+        # self.window.database_lineEdit.setText(DATABASE)
+        # self.window.output_name_lineEdit.setText(OUTPUT)
+
+        # connect to ExecuteSteps class to run the backend
+        self.execute_algo = ExecuteSteps()
+        self.execute_algo.currentModel.connect(self.updateProgressBar)
+
+        # logging
+        self._log = setup_logger("out", os.path.join(Path(__file__).resolve(True).parent, "out.log"))
+
+    _initial_setup_file_path = os.path.join(Path(__file__).resolve(True).parent, "basic_setup.json")
 
     def addSignToDict(self) -> None:
         """
@@ -67,10 +76,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # TODO: make the stationary_document name changeable
         stationary_document = self.readStationaryDocumentLineEdit()
         input_database = self.readInputDatabaseLineEdit()
-        treshold = self.readTresholdLineEdit()
-        stop_filter = self.window.filter_checkBox.isChecked()
+        treshold = self.readNumberOfVariablesLineEdit()
+        stop_filter = self.window.only_varaibles_checkBox.isChecked()
 
-        log(INFO, """Path to input: {}
+        self._log.info("""Path to input: {}
               Portfolio: {}
               Sign_dict: {}
               Stationarity: {}
@@ -80,20 +89,17 @@ class MainWindow(QtWidgets.QMainWindow):
                                         input_database, treshold, stop_filter))
 
         # TODO:Make an exception window for when you press RUN by mistake
-        # TODO: Find another way than try-except
-        try:
-            self._call_return = main(path_to_input_folder, stationary_document, portfolio, input_database,
-                                     sign_dict, treshold, stop_filter)
-        except Exception:
-            return None
+        self.execute_algo.set_log = self._log
+        self._call_return = self.execute_algo.main(path_to_input_folder, stationary_document, portfolio, input_database,
+                                                   sign_dict, treshold, stop_filter)
 
     def callSaveFunction(self) -> None:
         # TODO: Create a popup to raise attention when trying to save an unexisting file, or the path is not specified
         if self._call_return is None:
-            log(INFO, "Attempt to save a file that does not exists!")
+            self._log.info("Attempt to save a file that does not exists!")
 
         if self.readOutputFolderLineEdit() is None:
-            log(INFO, "Attempt to save a file to an unspecified location!")
+            self._log.info("Attempt to save a file to an unspecified location!")
             return None
 
         if self.window.select_output_path_checkBox.isChecked():
@@ -103,7 +109,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         output_name = self.readOutputNameLineEdit()
 
-        log(INFO, "Pat to save: {}, name to save: {}".format(path_to_output_folder, output_name))
+        self._log.info("Pat to save: {}, name to save: {}".format(path_to_output_folder, output_name))
 
         save_to_excel(self._call_return, path_to_output_folder, output_name)
 
@@ -114,7 +120,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         input_directory_path = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Input Directory')
 
-        input_sheets = readInputFileSheets(input_directory_path)
+        self._log = setup_logger("project_log", os.path.join(input_directory_path, "project_log.log"))
+
+        input_sheets = readInputFileSheets(input_directory_path, self._log, self.window.doc_lineEdit.text())
 
         self.window.portfolio_comboBox.addItems(input_sheets)
 
@@ -167,18 +175,51 @@ class MainWindow(QtWidgets.QMainWindow):
     def readInputDatabaseLineEdit(self) -> str:
         return self.window.database_lineEdit.text()
 
-    def readTresholdLineEdit(self) -> float:
-        value_field = self.window.treshold_lineEdit.text()
+    def readNumberOfVariablesLineEdit(self) -> float:
+        value_field = self.window.model_variables_lineEdit.text()
         if value_field in "":
-            return 0.5
+            return 2
         else:
-            return float(value_field)
+            return int(value_field)
 
     def readOutputNameLineEdit(self) -> str:
         return self.window.output_name_lineEdit.text()
 
-    def updateProgressBar(self) -> None:
+    def updateProgressBar(self, value) -> None:
+        self.window.progress.setValue(value)
+        QtWidgets.QApplication.processEvents()
+
+    def loadInitialSetup(self) -> None:
+        with open(self._initial_setup_file_path, "r") as file:
+            setup_data = json.load(file)
+
+            self.window.doc_lineEdit.setText(setup_data.get("DOC"))
+            self.window.database_lineEdit.setText(setup_data.get("DATABASE"))
+            self.window.output_name_lineEdit.setText(setup_data.get("OUTPUT"))
+
+    def loadProjectSetup(self, path) -> None:
+        with open(path, "r") as file:
+            setup_data = json.load(file)
+
+            self.window.doc_lineEdit.setText(setup_data.get("DOC"))
+            self.window.database_lineEdit.setText(setup_data.get("DATABASE"))
+            self.window.output_name_lineEdit.setText(setup_data.get("OUTPUT"))
+            self.loadProjectSignDict()
+
+    def loadProjectSignDict(self):
+        #implement the loading of a saved dictionary from an existing project
         pass
+
+    @staticmethod
+    def saveProjectSetup(path, data) -> None:
+        """
+
+        :param path:
+        :param data:
+        :return:
+        """
+        with open(path, "w") as file:
+            json.dump(data, file, indent=4)
 
     @staticmethod
     def setErrorColor(element) -> None:
