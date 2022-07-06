@@ -1,16 +1,18 @@
 import logging
 import json
+import time
 from typing import List, Union
 import pandas as pd
 import os
 from pathlib import Path
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 from challenger.gui.mainWindow import Ui_MainWindow
 # TODO: Setarile privind numele documentelor de input, ar trebui sa fie salvate automat intr-un fisier de configuratie
 from challenger.logger_setup import setup_logger
 from challenger.excel_saver import save_to_excel
 from challenger.ExecuteSteps import ExecuteSteps
 from challenger.resource_path import resource_path
+
 
 def readInputFileSheets(path_to_directory: Union[Path, str], _log: logging.log, doc: str) -> List[str]:
     try:
@@ -36,17 +38,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.run_botton.clicked.connect(lambda: self.callRunFunction())
         self.window.save_botton.clicked.connect(lambda: self.callSaveFunction())
         self.window.select_input_path_button.clicked.connect(lambda: self.callSelectInputFolderDialog())
+        self.window.select_output_path_checkBox.toggled.connect(lambda: self.setOutputFolderPath())
 
         # display default values from setting into corresponding fields
         self.loadInitialSetup()
-        # self.window.doc_lineEdit.setText(DOC)
-        # self.window.database_lineEdit.setText(DATABASE)
-        # self.window.output_name_lineEdit.setText(OUTPUT)
+
+        # set some text to progress bar
+        self.window.progress.setValue(0)
+        self.window.progress.setFormat("Ready!")
+        self.window.progress.setAlignment(QtCore.Qt.AlignCenter)
 
         # connect to ExecuteSteps class to run the backend
         self.execute_algo = ExecuteSteps()
         self.execute_algo.currentModel.connect(self.updateProgressBar)
+        self.execute_algo.currentState.connect(self.updateProgressBarWithName)
 
+        #update the output field with the name of the output file based on portfolio name
+        self.window.portfolio_name.currentIndexChanged.connect(lambda: self.setOutputFileName())
         # logging
         self._log = setup_logger("out", os.path.join(Path(__file__).resolve(True).parent, "out.log"))
 
@@ -71,32 +79,38 @@ class MainWindow(QtWidgets.QMainWindow):
     def callRunFunction(self) -> None:
         path_to_input_folder = self.readInputFolderLineEdit()
 
-        portfolio = self.readPortfolioLineEdit()
+        portfolio_sheet_name = self.readPortfolioLineEdit()
+        macro_sheet_name = self.readMacroSheetLineEdit()
+        data_sheet_name = self.readDataSheetLineEdit()
+        input_file_name = self.readInputFileNameLineEdit()
+        number_of_variables = self.readNumberOfVariablesLineEdit()
         sign_dict = self.readSignTable()
-        # TODO: make the stationary_document name changeable
-        stationary_document = self.readStationaryDocumentLineEdit()
-        input_database = self.readInputDatabaseLineEdit()
-        treshold = self.readNumberOfVariablesLineEdit()
-        stop_filter = self.window.only_varaibles_checkBox.isChecked()
-
-        self._log.info("""Path to input: {}
-              Portfolio: {}
-              Sign_dict: {}
-              Stationarity: {}
-              Input Database: {}
-              Treshold: {}
-              Stop Filter: {}""".format(path_to_input_folder, portfolio, sign_dict, stationary_document,
-                                        input_database, treshold, stop_filter))
+        print(number_of_variables)
+        self._log.info(f"""Path to input: {path_to_input_folder}
+              Portfolio: {portfolio_sheet_name}
+              Sign_dict: {sign_dict}
+              Input file name: {input_file_name}
+              Data sheet name: {data_sheet_name}
+              Macro Sheet name: {macro_sheet_name}
+              Number of variables: {number_of_variables}
+              """)
 
         # TODO:Make an exception window for when you press RUN by mistake
         self.execute_algo.set_log = self._log
-        self._call_return = self.execute_algo.main(path_to_input_folder, stationary_document, portfolio, input_database,
-                                                   sign_dict, treshold, stop_filter)
+        self._call_return = self.execute_algo.execute_challenger(path_to_input_folder,
+                                                                 input_file_name,
+                                                                 portfolio_sheet_name,
+                                                                 macro_sheet_name,
+                                                                 data_sheet_name,
+                                                                 number_of_variables,
+                                                                 sign_dict)
+        print(self._call_return)
 
     def callSaveFunction(self) -> None:
         # TODO: Create a popup to raise attention when trying to save an unexisting file, or the path is not specified
         if self._call_return is None:
             self._log.info("Attempt to save a file that does not exists!")
+            return None
 
         if self.readOutputFolderLineEdit() is None:
             self._log.info("Attempt to save a file to an unspecified location!")
@@ -112,6 +126,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._log.info("Pat to save: {}, name to save: {}".format(path_to_output_folder, output_name))
 
         save_to_excel(self._call_return, path_to_output_folder, output_name)
+        print("Saved!")
 
     def callSelectInputFolderDialog(self) -> None:
         """
@@ -122,11 +137,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._log = setup_logger("project_log", os.path.join(input_directory_path, "project_log.log"))
 
-        input_sheets = readInputFileSheets(input_directory_path, self._log, self.window.doc_lineEdit.text())
+        input_sheets = readInputFileSheets(input_directory_path, self._log, self.window.input_file_name.text())
 
-        self.window.portfolio_comboBox.addItems(input_sheets)
+        self.window.portfolio_name.addItems(input_sheets)
 
         self.window.input_lineEdit.setText(input_directory_path)
+
+
+        QtWidgets.QApplication.processEvents()
 
     def readInputFolderLineEdit(self) -> Path:
         """
@@ -140,6 +158,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.setErrorColor(self.window.input_lineEdit)
         else:
             self.resetErrorColor(self.window.input_lineEdit)
+
             return Path(input_element).resolve(True)
 
     def readOutputFolderLineEdit(self) -> Path:
@@ -152,13 +171,38 @@ class MainWindow(QtWidgets.QMainWindow):
             return Path(input_element).resolve(True)
 
     def readPortfolioLineEdit(self) -> str:
-        input_element = self.window.portfolio_comboBox.currentText()
+        input_element = self.window.portfolio_name.currentText()
         print(input_element)
         if input_element in "":
             self.setErrorColor(self.window.input_lineEdit)
         else:
             self.resetErrorColor(self.window.input_lineEdit)
             return input_element
+
+    def readMacroSheetLineEdit(self) -> str:
+        return self.window.macro_sheet_name.text()
+
+    def readDataSheetLineEdit(self) -> str:
+        return self.window.data_sheet_name.text()
+
+    def readInputFileNameLineEdit(self) -> str:
+        return self.window.input_file_name.text()
+
+    def readOutputNameLineEdit(self) -> str:
+
+        return self.window.output_file_name.text()
+
+    def readNumberOfVariablesLineEdit(self) -> list:
+        # Default value is 2 => a list containing the value of 2 is returned
+        # Otherwise a list of all inputted values is returned
+        value_field = self.window.number_of_variables.text()
+        if value_field in "":
+            return list([2])
+        else:
+            values = []
+            for value in value_field.split(","):
+                values.append(int(value))
+            return values
 
     def readSignTable(self) -> dict:
         sign_dict = {}
@@ -169,45 +213,36 @@ class MainWindow(QtWidgets.QMainWindow):
             sign_dict.update({variable: sign})
         return sign_dict
 
-    def readStationaryDocumentLineEdit(self) -> str:
-        return self.window.doc_lineEdit.text()
-
-    def readInputDatabaseLineEdit(self) -> str:
-        return self.window.database_lineEdit.text()
-
-    def readNumberOfVariablesLineEdit(self) -> float:
-        value_field = self.window.model_variables_lineEdit.text()
-        if value_field in "":
-            return 2
-        else:
-            return int(value_field)
-
-    def readOutputNameLineEdit(self) -> str:
-        return self.window.output_name_lineEdit.text()
-
     def updateProgressBar(self, value) -> None:
         self.window.progress.setValue(value)
+        self.window.progress.setFormat(str(value) + "%")
+
+        if value == 100:
+            self.window.progress.setFormat("Done! Ready to be saved!")
         QtWidgets.QApplication.processEvents()
+
+    def updateProgressBarWithName(self, value) -> None:
+        self.window.label.setText(value)
 
     def loadInitialSetup(self) -> None:
         with open(self._initial_setup_file_path, "r") as file:
             setup_data = json.load(file)
 
-            self.window.doc_lineEdit.setText(setup_data.get("DOC"))
-            self.window.database_lineEdit.setText(setup_data.get("DATABASE"))
-            self.window.output_name_lineEdit.setText(setup_data.get("OUTPUT"))
+            self.window.macro_sheet_name.setText(setup_data.get("macro_sheet_name"))
+            self.window.data_sheet_name.setText(setup_data.get("data_sheet_name"))
+            self.window.input_file_name.setText(setup_data.get("input_file_name"))
 
     def loadProjectSetup(self, path) -> None:
         with open(path, "r") as file:
             setup_data = json.load(file)
 
-            self.window.doc_lineEdit.setText(setup_data.get("DOC"))
-            self.window.database_lineEdit.setText(setup_data.get("DATABASE"))
-            self.window.output_name_lineEdit.setText(setup_data.get("OUTPUT"))
+            self.window.macro_sheet_name.setText(setup_data.get("macro_sheet_name"))
+            self.window.data_sheet_name.setText(setup_data.get("data_sheet_name"))
+            self.window.input_file_name.setText(setup_data.get("input_file_name"))
             self.loadProjectSignDict()
 
     def loadProjectSignDict(self):
-        #implement the loading of a saved dictionary from an existing project
+        # implement the loading of a saved dictionary from an existing project
         pass
 
     @staticmethod
@@ -238,3 +273,12 @@ class MainWindow(QtWidgets.QMainWindow):
         :param element: The element to change the color of
         """
         element.setStyleSheet('background-color:rgb(255,255,255);')
+
+    def setOutputFolderPath(self):
+        path = self.window.input_lineEdit.text()
+        self.window.output_lineEdit.setText(path)
+
+    def setOutputFileName(self):
+        text = self.window.portfolio_name.currentText() + "_" + time.strftime("%d-%m-20%y-%H:%M:%S",
+                                                                                  time.localtime()) + ".xlsx"
+        self.window.output_file_name.setText(text)

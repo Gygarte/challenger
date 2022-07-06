@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>315</width>
+    <width>554</width>
     <height>620</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>554</width>
+    <height>620</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -167,22 +173,22 @@ background: white;
           <item row="2" column="0">
            <widget class="QLabel" name="doc_tag">
             <property name="text">
-             <string>DOC</string>
+             <string>MACRO SHEET</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="QLineEdit" name="doc_lineEdit"/>
+           <widget class="QLineEdit" name="macro_sheet_name"/>
           </item>
           <item row="4" column="0">
            <widget class="QLabel" name="database_tag">
             <property name="text">
-             <string>DATABASE</string>
+             <string>INPUT FILE</string>
             </property>
            </widget>
           </item>
           <item row="4" column="1">
-           <widget class="QLineEdit" name="database_lineEdit"/>
+           <widget class="QLineEdit" name="input_file_name"/>
           </item>
           <item row="6" column="0">
            <widget class="QLabel" name="output_tag_2">
@@ -199,10 +205,10 @@ background: white;
            </widget>
           </item>
           <item row="6" column="1">
-           <widget class="QLineEdit" name="output_name_lineEdit"/>
+           <widget class="QLineEdit" name="output_file_name"/>
           </item>
           <item row="7" column="1">
-           <widget class="QLineEdit" name="model_variables_lineEdit">
+           <widget class="QLineEdit" name="number_of_variables">
             <property name="inputMask">
              <string/>
             </property>
@@ -217,12 +223,22 @@ background: white;
           <item row="7" column="0">
            <widget class="QLabel" name="treshold_tag">
             <property name="text">
-             <string>Variables</string>
+             <string>VARIABLES</string>
             </property>
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QComboBox" name="portfolio_comboBox"/>
+           <widget class="QComboBox" name="portfolio_name"/>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLineEdit" name="data_sheet_name"/>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>DATA SHEET</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>
@@ -329,6 +345,13 @@ background: white;
               <widget class="QPushButton" name="run_botton">
                <property name="text">
                 <string>RUN</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pause_resume_botton">
+               <property name="text">
+                <string>PAUSE / RESUME</string>
                </property>
               </widget>
              </item>

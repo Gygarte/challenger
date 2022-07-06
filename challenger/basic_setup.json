@@ -1,5 +1,5 @@
 {
-    "DOC": "Rezultate teste stationaritate.xlsx",
-    "DATABASE": "input.xlsx",
-    "OUTPUT": "output.xlsx"
+    "macro_sheet_name": "macro",
+    "data_sheet_name": "input",
+    "input_file_name": "input.xlsx"
 }
