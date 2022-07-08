@@ -6,12 +6,14 @@ import pandas as pd
 import os
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtCore import QThreadPool
 from challenger.gui.mainWindow import Ui_MainWindow
 # TODO: Setarile privind numele documentelor de input, ar trebui sa fie salvate automat intr-un fisier de configuratie
 from challenger.logger_setup import setup_logger
 from challenger.excel_saver import save_to_excel
 from challenger.ExecuteSteps import ExecuteSteps
 from challenger.resource_path import resource_path
+from challenger.Workers import ProcessingWorker, SaverWorker
 
 
 def readInputFileSheets(path_to_directory: Union[Path, str], _log: logging.log, doc: str) -> List[str]:
@@ -50,13 +52,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # connect to ExecuteSteps class to run the backend
         self.execute_algo = ExecuteSteps()
-        self.execute_algo.currentModel.connect(self.updateProgressBar)
-        self.execute_algo.currentState.connect(self.updateProgressBarWithName)
+        # self.execute_algo.currentModel.connect(self.updateProgressBar)
+        # self.execute_algo.currentState.connect(self.updateProgressBarWithName)
 
-        #update the output field with the name of the output file based on portfolio name
+        # update the output field with the name of the output file based on portfolio name
         self.window.portfolio_name.currentIndexChanged.connect(lambda: self.setOutputFileName())
         # logging
         self._log = setup_logger("out", os.path.join(Path(__file__).resolve(True).parent, "out.log"))
+
+        # threading
+        self.threadpool = QThreadPool()
 
     _initial_setup_file_path = resource_path("challenger/basic_setup.json")
 
@@ -97,6 +102,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # TODO:Make an exception window for when you press RUN by mistake
         self.execute_algo.set_log = self._log
+
+        processing_worker = ProcessingWorker(self.execute_algo,
+                                             path_to_input_folder,
+                                             input_file_name,
+                                             portfolio_sheet_name,
+                                             macro_sheet_name,
+                                             data_sheet_name,
+                                             number_of_variables,
+                                             sign_dict)
+        processing_worker.signals.result.connect(self.setCallReturn)
+        processing_worker.signals.progress.connect(self.updateProgressBar)
+        processing_worker.signals.finished.connect(self.printFinish)
+
+        """
         self._call_return = self.execute_algo.execute_challenger(path_to_input_folder,
                                                                  input_file_name,
                                                                  portfolio_sheet_name,
@@ -105,6 +124,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                                                  number_of_variables,
                                                                  sign_dict)
         print(self._call_return)
+        """
+        # Execute
+
+        self.threadpool.start(processing_worker)
+
+    def setCallReturn(self, obj) -> None:
+        self._call_return = obj
 
     def callSaveFunction(self) -> None:
         # TODO: Create a popup to raise attention when trying to save an unexisting file, or the path is not specified
@@ -125,8 +151,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._log.info("Pat to save: {}, name to save: {}".format(path_to_output_folder, output_name))
 
-        save_to_excel(self._call_return, path_to_output_folder, output_name)
-        print("Saved!")
+        save_worker = SaverWorker(save_to_excel,
+                                  self._call_return,
+                                  path_to_output_folder,
+                                  output_name)
+        save_worker.signals.finished.connect(self.displayFinished)
+
+        self.threadpool.start(save_worker)
 
     def callSelectInputFolderDialog(self) -> None:
         """
@@ -142,7 +173,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.portfolio_name.addItems(input_sheets)
 
         self.window.input_lineEdit.setText(input_directory_path)
-
 
         QtWidgets.QApplication.processEvents()
 
@@ -274,11 +304,19 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         element.setStyleSheet('background-color:rgb(255,255,255);')
 
+    @staticmethod
+    def printFinish():
+        print("Finish")
+
+    @staticmethod
+    def displayFinished():
+        print("Saved successfully")
+
     def setOutputFolderPath(self):
         path = self.window.input_lineEdit.text()
         self.window.output_lineEdit.setText(path)
 
     def setOutputFileName(self):
-        text = self.window.portfolio_name.currentText() + "_" + time.strftime("%d-%m-20%y-%H:%M:%S",
-                                                                                  time.localtime()) + ".xlsx"
+        text = self.window.portfolio_name.currentText() + "_" + time.strftime("%d-%m-20%y-%H-%M-%S",
+                                                                              time.localtime()) + ".xlsx"
         self.window.output_file_name.setText(text)
