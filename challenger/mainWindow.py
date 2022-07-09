@@ -308,9 +308,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def printFinish():
         print("Finish")
 
-    @staticmethod
-    def displayFinished():
-        print("Saved successfully")
+    def displayFinished(self):
+        self.window.progress.setFormat("Saved!")
+        QtWidgets.QApplication.processEvents()
 
     def setOutputFolderPath(self):
         path = self.window.input_lineEdit.text()
