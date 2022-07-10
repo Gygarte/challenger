@@ -3,11 +3,27 @@ import statsmodels.api as smt
 from itertools import combinations
 
 
+def compute_models_modified(data_in: tuple) -> object:
+    var = data_in[0]
+    dependent_var = var[0]
+    independent_var = var[1]
+    data = data_in[1]
+
+    y_train = data[dependent_var]
+    x_train = data[list(independent_var)]
+
+    x_train = smt.add_constant(x_train)
+
+    model = smt.OLS(y_train, x_train)
+    model = model.fit()
+
+    return [model, dependent_var, independent_var]
+
 class ComputeModels:
 
     @staticmethod
     def compute_models(dependent_var: str, independent_var: tuple, data: pd.DataFrame,
-                       intercept: int = 1):
+                       intercept: int = 1) -> object:
         y_train = data[dependent_var]
         x_train = data[list(independent_var)]
 

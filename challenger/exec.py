@@ -1,6 +1,9 @@
 import sys
+import os
 from PyQt5 import QtWidgets
 from challenger.mainWindow import MainWindow
+
+basedir = os.path.dirname(__file__)
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

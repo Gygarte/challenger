@@ -13,7 +13,8 @@ from challenger.logger_setup import setup_logger
 from challenger.excel_saver import save_to_excel
 from challenger.ExecuteSteps import ExecuteSteps
 from challenger.resource_path import resource_path
-from challenger.Workers import ProcessingWorker, SaverWorker
+from challenger.Workers import ProcessingWorker, SaverWorker, ExecutorWorker
+from challenger.Preprocessor import Preprocessor
 
 
 def readInputFileSheets(path_to_directory: Union[Path, str], _log: logging.log, doc: str) -> List[str]:
@@ -63,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # threading
         self.threadpool = QThreadPool()
 
-    _initial_setup_file_path = resource_path("challenger/basic_setup.json")
+    _initial_setup_file_path = resource_path("basic_setup.json")
 
     def addSignToDict(self) -> None:
         """
@@ -90,6 +91,7 @@ class MainWindow(QtWidgets.QMainWindow):
         input_file_name = self.readInputFileNameLineEdit()
         number_of_variables = self.readNumberOfVariablesLineEdit()
         sign_dict = self.readSignTable()
+
         print(number_of_variables)
         self._log.info(f"""Path to input: {path_to_input_folder}
               Portfolio: {portfolio_sheet_name}
@@ -103,17 +105,20 @@ class MainWindow(QtWidgets.QMainWindow):
         # TODO:Make an exception window for when you press RUN by mistake
         self.execute_algo.set_log = self._log
 
-        processing_worker = ProcessingWorker(self.execute_algo,
-                                             path_to_input_folder,
-                                             input_file_name,
-                                             portfolio_sheet_name,
-                                             macro_sheet_name,
-                                             data_sheet_name,
-                                             number_of_variables,
-                                             sign_dict)
-        processing_worker.signals.result.connect(self.setCallReturn)
-        processing_worker.signals.progress.connect(self.updateProgressBar)
-        processing_worker.signals.finished.connect(self.printFinish)
+        preprocessor = Preprocessor(path_to_input_folder,
+                                    input_file_name,
+                                    portfolio_sheet_name,
+                                    macro_sheet_name,
+                                    data_sheet_name,
+                                    number_of_variables[0],
+                                    sign_dict)
+        preprocessor.set_log = self._log
+        instructions, output_template, data = preprocessor.run_preprocess()
+        print(f"The len of instructions is {len(instructions)}")
+
+        executor_worker = ExecutorWorker(self._log, instructions, data)
+        executor_worker.signals.result.connect(self.printResult)
+        executor_worker.signals.start.connect(self.printStart)
 
         """
         self._call_return = self.execute_algo.execute_challenger(path_to_input_folder,
@@ -127,7 +132,10 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         # Execute
 
-        self.threadpool.start(processing_worker)
+        self.threadpool.start(executor_worker)
+
+    def printStart(self):
+        print("Start Work!")
 
     def setCallReturn(self, obj) -> None:
         self._call_return = obj
@@ -305,8 +313,8 @@ class MainWindow(QtWidgets.QMainWindow):
         element.setStyleSheet('background-color:rgb(255,255,255);')
 
     @staticmethod
-    def printFinish():
-        print("Finish")
+    def printResult(value):
+        print(f"Total time for task was {value}")
 
     def displayFinished(self):
         self.window.progress.setFormat("Saved!")
