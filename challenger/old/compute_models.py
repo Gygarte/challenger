@@ -1,13 +1,16 @@
 import pandas as pd
 import statsmodels.api as smt
 from itertools import combinations
+from dataclasses import dataclass
+from typing import Any
 
 
-def compute_models_modified(data_in: tuple) -> object:
-    var = data_in[0]
-    dependent_var = var[0]
-    independent_var = var[1]
-    data = data_in[1]
+def compute_models_modified(data: tuple) -> object:
+    data_in = data[0]
+
+    dependent_var = data_in[0]
+    independent_var = data_in[1]
+    data = data[1]
 
     y_train = data[dependent_var]
     x_train = data[list(independent_var)]
@@ -19,11 +22,74 @@ def compute_models_modified(data_in: tuple) -> object:
 
     return [model, dependent_var, independent_var]
 
+
+def compute_models_modified2(data: tuple) -> dict:
+    """
+    data = (dependent: list, independent: list)
+    """
+
+    y_train = data[0]
+    x_train = data[1]
+    variables = data[2]
+
+    x_train = smt.add_constant(x_train)
+
+    model = smt.OLS(y_train, x_train)
+    model = model.fit()
+
+    extract = extract_model_data((model, variables))
+    return extract
+
+
+def extract_model_data(compute_result: tuple[Any, tuple[str, tuple[str]]]) -> list[dict]:
+    result: dict = {}
+    model = compute_result[0]
+    variables = compute_result[1]
+    model_coef = model.params
+    model_pvalues = model.pvalues
+    # add names of varaibles
+    result.update({"Dependent": variables[0]})
+
+    for index, item in enumerate(variables[1]):
+        result.update({f"Independent_{index + 1}": item})
+
+    result.update({"Adj. r-Square": model.rsquared_adj,
+                   "AIC": model.aic,
+                   "F-Pvalue": model.f_pvalue,
+                   "Intercept_cord": model_coef[0],
+                   "Intercept pvalue": model_pvalues[0]})
+    for index, value in enumerate(variables[1]):
+        result.update({f"Independent_{index + 1}_coef": model_coef[index + 1]})
+        result.update({f"Independent_{index + 1}_pvalue": model_pvalues[index + 1]})
+
+    return result
+
+
+@dataclass
+class Model:
+    params: tuple[int] = (1, 2, 3)
+    pvalues: tuple[int] = (1, 2, 3)
+    rsquared_adj: int = 33
+    aic: int = 52
+    f_pvalue: int = 23
+
+
+def test_extract_model_data():
+    simulated_model = Model()
+    data_in = (simulated_model, ("a", ("b", "c")))
+    result = extract_model_data(data_in)
+    print(result)
+
+
+
+
+
 class ComputeModels:
 
     @staticmethod
     def compute_models(dependent_var: str, independent_var: tuple, data: pd.DataFrame,
                        intercept: int = 1) -> object:
+        print(dependent_var)
         y_train = data[dependent_var]
         x_train = data[list(independent_var)]
 
@@ -132,3 +198,7 @@ class ComputeModels:
     @staticmethod
     def _encode_coef_sign(coef: float) -> int:
         return -1 if coef < 0 else 1
+
+
+if __name__ == "__main__":
+    test_extract_model_data()

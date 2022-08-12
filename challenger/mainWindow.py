@@ -6,15 +6,17 @@ import pandas as pd
 import os
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore
+from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtCore import QThreadPool
-from challenger.gui.mainWindow import Ui_MainWindow
+from challenger.gui.main_window_gui_template import Ui_MainWindow
 # TODO: Setarile privind numele documentelor de input, ar trebui sa fie salvate automat intr-un fisier de configuratie
 from challenger.logger_setup import setup_logger
-from challenger.excel_saver import save_to_excel
-from challenger.ExecuteSteps import ExecuteSteps
+from challenger.helper.excel_saver import save_to_excel
+from challenger.old.ExecuteSteps import ExecuteSteps
 from challenger.resource_path import resource_path
-from challenger.Workers import ProcessingWorker, SaverWorker, ExecutorWorker
-from challenger.Preprocessor import Preprocessor
+from challenger.workers import worker_to_execute_algo
+from challenger.workers import worker_to_save
+from challenger.helper.preprocessor import Preprocessor
 
 
 def readInputFileSheets(path_to_directory: Union[Path, str], _log: logging.log, doc: str) -> List[str]:
@@ -33,7 +35,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window = Ui_MainWindow()
         self.window.setupUi(self)
 
-        self._call_return = None
+        self._final_result = None
 
         self.window.exit_botton.clicked.connect(lambda: self.close())
         self.window.add_botton.clicked.connect(lambda: self.addSignToDict())
@@ -42,7 +44,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.save_botton.clicked.connect(lambda: self.callSaveFunction())
         self.window.select_input_path_button.clicked.connect(lambda: self.callSelectInputFolderDialog())
         self.window.select_output_path_checkBox.toggled.connect(lambda: self.setOutputFolderPath())
-
+        self.window.pause_resume_botton.clicked.connect(lambda: self.pauseResumeButton())
         # display default values from setting into corresponding fields
         self.loadInitialSetup()
 
@@ -50,6 +52,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.progress.setValue(0)
         self.window.progress.setFormat("Ready!")
         self.window.progress.setAlignment(QtCore.Qt.AlignCenter)
+
+        # set "Pause" as primari text on the Pause/Resume button
+        self.window.pause_resume_botton.setText("Pause")
 
         # connect to ExecuteSteps class to run the backend
         self.execute_algo = ExecuteSteps()
@@ -82,67 +87,47 @@ class MainWindow(QtWidgets.QMainWindow):
         row_number = self.window.sign_table.currentRow()
         self.window.sign_table.removeRow(row_number)
 
-    def callRunFunction(self) -> None:
+    def readFields(self) -> dict:
         path_to_input_folder = self.readInputFolderLineEdit()
+        form_data = {"path_to_input_folder": path_to_input_folder,
+                     "portfolio_sheet_name": self.readPortfolioLineEdit(),
+                     "macro_sheet_name": self.readMacroSheetLineEdit(),
+                     "data_sheet_name": self.readDataSheetLineEdit(),
+                     "input_file_name": self.readInputFileNameLineEdit(),
+                     "number_of_variables": self.readNumberOfVariablesLineEdit(),
+                     "sign_dict": self.readSignTable()
+                     }
 
-        portfolio_sheet_name = self.readPortfolioLineEdit()
-        macro_sheet_name = self.readMacroSheetLineEdit()
-        data_sheet_name = self.readDataSheetLineEdit()
-        input_file_name = self.readInputFileNameLineEdit()
-        number_of_variables = self.readNumberOfVariablesLineEdit()
-        sign_dict = self.readSignTable()
+        return form_data
 
-        print(number_of_variables)
-        self._log.info(f"""Path to input: {path_to_input_folder}
-              Portfolio: {portfolio_sheet_name}
-              Sign_dict: {sign_dict}
-              Input file name: {input_file_name}
-              Data sheet name: {data_sheet_name}
-              Macro Sheet name: {macro_sheet_name}
-              Number of variables: {number_of_variables}
-              """)
+    def callRunFunction(self) -> None:
 
-        # TODO:Make an exception window for when you press RUN by mistake
-        self.execute_algo.set_log = self._log
-
-        preprocessor = Preprocessor(path_to_input_folder,
-                                    input_file_name,
-                                    portfolio_sheet_name,
-                                    macro_sheet_name,
-                                    data_sheet_name,
-                                    number_of_variables[0],
-                                    sign_dict)
+        # Initialize a preprocessor for obtaining the input for algo
+        preprocessor = Preprocessor(self.readFields())
         preprocessor.set_log = self._log
-        instructions, output_template, data = preprocessor.run_preprocess()
-        print(f"The len of instructions is {len(instructions)}")
+        generator, output_template = preprocessor.run()
+        print(f"The len of instructions is {preprocessor.total_number_of_models}")
 
-        executor_worker = ExecutorWorker(self._log, instructions, data)
-        executor_worker.signals.result.connect(self.printResult)
-        executor_worker.signals.start.connect(self.printStart)
+        # Initialize the algo worker and print the progress
+        executor_worker = worker_to_execute_algo.ExecutorWorker(generator, preprocessor.total_number_of_models)
 
-        """
-        self._call_return = self.execute_algo.execute_challenger(path_to_input_folder,
-                                                                 input_file_name,
-                                                                 portfolio_sheet_name,
-                                                                 macro_sheet_name,
-                                                                 data_sheet_name,
-                                                                 number_of_variables,
-                                                                 sign_dict)
-        print(self._call_return)
-        """
-        # Execute
+        executor_worker.signals.progress.connect(print)
+        executor_worker.signals.finished.connect(print)
+        executor_worker.signals.error.connect(print)
+        executor_worker.signals.result.connect(self.outputToDataframe)
 
         self.threadpool.start(executor_worker)
 
-    def printStart(self):
-        print("Start Work!")
+    def outputToDataframe(self, output_of_processing: list[dict]) -> None:
+        from algo.add_output_to_dataframe import output_to_dataframe
 
-    def setCallReturn(self, obj) -> None:
-        self._call_return = obj
+        self._final_result = output_to_dataframe(output_of_processing,
+                                                 self.readSignTable(),
+                                                 self.readNumberOfVariablesLineEdit()[0])
 
     def callSaveFunction(self) -> None:
         # TODO: Create a popup to raise attention when trying to save an unexisting file, or the path is not specified
-        if self._call_return is None:
+        if self._final_result is None:
             self._log.info("Attempt to save a file that does not exists!")
             return None
 
@@ -159,10 +144,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._log.info("Pat to save: {}, name to save: {}".format(path_to_output_folder, output_name))
 
-        save_worker = SaverWorker(save_to_excel,
-                                  self._call_return,
-                                  path_to_output_folder,
-                                  output_name)
+        save_worker = worker_to_save.SaverWorker(save_to_excel,
+                                                 self._final_result,
+                                                 path_to_output_folder,
+                                                 output_name)
         save_worker.signals.finished.connect(self.displayFinished)
 
         self.threadpool.start(save_worker)
@@ -197,7 +182,8 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.resetErrorColor(self.window.input_lineEdit)
 
-            return Path(input_element).resolve(True)
+            path = Path(input_element).resolve(True)
+            return path
 
     def readOutputFolderLineEdit(self) -> Path:
         input_element = self.window.output_lineEdit.text()
@@ -251,6 +237,7 @@ class MainWindow(QtWidgets.QMainWindow):
             sign_dict.update({variable: sign})
         return sign_dict
 
+    @pyqtSlot(int)
     def updateProgressBar(self, value) -> None:
         self.window.progress.setValue(value)
         self.window.progress.setFormat(str(value) + "%")
@@ -282,6 +269,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def loadProjectSignDict(self):
         # implement the loading of a saved dictionary from an existing project
         pass
+
+    def pauseResumeButton(self):
+        if self.window.pause_resume_botton.text() in "Pause":
+            print("Paused")
+            self.window.pause_resume_botton.setText("Resume")
+        else:
+            print("Resumed")
+            self.window.pause_resume_botton.setText("Pause")
 
     @staticmethod
     def saveProjectSetup(path, data) -> None:

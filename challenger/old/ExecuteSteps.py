@@ -1,9 +1,14 @@
 import pandas as pd
 from PyQt5 import QtCore
-from challenger.import_handler import ImportHandler
-from challenger.ComputeModels import ComputeModels
+from challenger.helper.import_handler import ImportHandler
+from challenger.old.compute_models import ComputeModels
 from pathlib import Path
 
+"""
+Old executor _ to be deleted oance teh parallel processor is in place
+
+NOTE: is working properly, but takes a lot of time to finish
+"""
 
 class ExecuteSteps(QtCore.QObject):
     _log = None

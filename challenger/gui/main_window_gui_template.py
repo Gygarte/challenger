@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(315, 620)
+        MainWindow.resize(296, 620)
         self.main = QtWidgets.QWidget(MainWindow)
         self.main.setStyleSheet("QLabel#copyright_tag{\n"
 "color:white;\n"
@@ -162,7 +162,7 @@ class Ui_MainWindow(object):
         self.sign_table.setObjectName("sign_table")
         self.sign_table.setColumnCount(0)
         self.sign_table.setRowCount(0)
-        self.sign_table.verticalHeader().setStretchLastSection(True)
+        self.sign_table.verticalHeader().setStretchLastSection(False)
         self.gridLayout_2.addWidget(self.sign_table, 0, 1, 2, 1)
         self.delete_botton = QtWidgets.QPushButton(self.body_middle_down)
         self.delete_botton.setObjectName("delete_botton")
@@ -245,13 +245,3 @@ class Ui_MainWindow(object):
         self.run_botton.setText(_translate("MainWindow", "RUN"))
         self.pause_resume_botton.setText(_translate("MainWindow", "PAUSE / RESUME"))
         self.copyright_tag.setText(_translate("MainWindow", "v2.5"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
-    sys.exit(app.exec_())
