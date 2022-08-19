@@ -34,3 +34,5 @@ def test_create_variable_combinations(results):
         return "Passed, for all groups!"
     else:
         return "Failed!"
+
+

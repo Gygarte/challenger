@@ -36,6 +36,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.window.setupUi(self)
 
         self._final_result = None
+        self.output_template = None
 
         self.window.exit_botton.clicked.connect(lambda: self.close())
         self.window.add_botton.clicked.connect(lambda: self.addSignToDict())
@@ -97,7 +98,7 @@ class MainWindow(QtWidgets.QMainWindow):
                      "number_of_variables": self.readNumberOfVariablesLineEdit(),
                      "sign_dict": self.readSignTable()
                      }
-
+        #self.saveProjectSetup(path_to_input_folder, form_data)
         return form_data
 
     def callRunFunction(self) -> None:
@@ -105,7 +106,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Initialize a preprocessor for obtaining the input for algo
         preprocessor = Preprocessor(self.readFields())
         preprocessor.set_log = self._log
-        generator, output_template = preprocessor.run()
+        generator, self.output_template = preprocessor.run()
+        print(self.output_template)
         print(f"The len of instructions is {preprocessor.total_number_of_models}")
 
         # Initialize the algo worker and print the progress
@@ -121,9 +123,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def outputToDataframe(self, output_of_processing: list[dict]) -> None:
         from algo.add_output_to_dataframe import output_to_dataframe
 
-        self._final_result = output_to_dataframe(output_of_processing,
-                                                 self.readSignTable(),
-                                                 self.readNumberOfVariablesLineEdit()[0])
+        self._final_result = output_to_dataframe(output_of_processing,self.output_template)
 
     def callSaveFunction(self) -> None:
         # TODO: Create a popup to raise attention when trying to save an unexisting file, or the path is not specified
@@ -264,7 +264,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.window.macro_sheet_name.setText(setup_data.get("macro_sheet_name"))
             self.window.data_sheet_name.setText(setup_data.get("data_sheet_name"))
             self.window.input_file_name.setText(setup_data.get("input_file_name"))
-            self.loadProjectSignDict()
+            self.loadProjectSignDict(setup_data.get("sign_dict"))
 
     def loadProjectSignDict(self):
         # implement the loading of a saved dictionary from an existing project
@@ -286,7 +286,7 @@ class MainWindow(QtWidgets.QMainWindow):
         :param data:
         :return:
         """
-        with open(path, "w") as file:
+        with open(os.path.join(path, "project.json"), "w") as file:
             json.dump(data, file, indent=4)
 
     @staticmethod

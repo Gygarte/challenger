@@ -262,7 +262,7 @@ background: white;
           <item row="0" column="1" rowspan="2">
            <widget class="QTableWidget" name="sign_table">
             <attribute name="verticalHeaderStretchLastSection">
-             <bool>true</bool>
+             <bool>false</bool>
             </attribute>
            </widget>
           </item>

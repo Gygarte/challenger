@@ -6,7 +6,9 @@ from PyQt5.QtCore import QRunnable
 from challenger.workers import worker_to_signal
 from challenger.old import compute_models
 from typing import Generator
+
 import multiprocessing as mp
+from challenger.algo.add_output_to_dataframe import output_to_dataframe
 
 
 class ExecutorWorker(QRunnable):
@@ -23,7 +25,8 @@ class ExecutorWorker(QRunnable):
 
             t0: float = time.perf_counter()
             number_of_executors = int(mp.cpu_count() / 2)
-            pool = mp.Pool(number_of_executors,
+
+            pool = mp.Pool(processes=number_of_executors,
                            maxtasksperchild=1000)
 
             result = pool.map_async(func=compute_models.compute_models_modified2,
@@ -31,14 +34,20 @@ class ExecutorWorker(QRunnable):
                                     chunksize=250)
 
             t1 = time.perf_counter()
-            print(f"Elapsed time is {t1 - t0} seconds, or {((t1 - t0) / 60 )} minutes")
+            print(f"Elapsed time is {t1 - t0} seconds, or {((t1 - t0) / 60)} minutes")
 
-            # cleaning
+            print("Results compiled...")
+
+            print("File Closed!")
+
             pool.close()
             pool.join()
 
-            print("Results compiled...")
-            self.signals.result.emit(result.get())
+            r = result.get()
+            print(r[0])
+            filtered_result = list(filter(None, r))
+            print(filtered_result[0])
+            self.signals.result.emit(filtered_result)
 
         except Exception:
             traceback.print_exc()

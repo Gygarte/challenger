@@ -62,7 +62,7 @@ class Preprocessor(QObject):
 
             for dependent in portfolio_dependent:
                 for independent in independent_var_combinations:
-                    yield (data[dependent].to_numpy(), data[list(independent)].to_numpy(), (dependent, independent))
+                    yield (data[dependent].to_numpy(), data[list(independent)].to_numpy(), (dependent, independent)), self.sign_dict
 
         return generator, output_template
 

@@ -9,8 +9,15 @@ def sign_filter(sign_dict: dict, model_coef: Union[list, tuple], indep_var_combi
     for var, sign in sign_dict.items():
         for index, variable in enumerate(indep_var_combination):
             if var in variable:
+                print(f"var: {var}")
+                print(f"varaible:{variable}")
                 if _encode_coef_sign(model_coef[index]) == sign:
                     result.append("Correct!")
+                    print(result)
                 else:
                     result.append("Incorrect!")
+                    print(result)
+            else:
+                result.append("Not provided")
+                print(result)
     return result

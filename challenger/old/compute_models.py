@@ -2,7 +2,8 @@ import pandas as pd
 import statsmodels.api as smt
 from itertools import combinations
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
+from challenger.algo import sign_filter
 
 
 def compute_models_modified(data: tuple) -> object:
@@ -23,10 +24,12 @@ def compute_models_modified(data: tuple) -> object:
     return [model, dependent_var, independent_var]
 
 
-def compute_models_modified2(data: tuple) -> dict:
+def compute_models_modified2(data_in: tuple) -> tuple:
     """
     data = (dependent: list, independent: list)
     """
+    data = data_in[0]
+    sign_dict = data_in[1]
 
     y_train = data[0]
     x_train = data[1]
@@ -37,32 +40,65 @@ def compute_models_modified2(data: tuple) -> dict:
     model = smt.OLS(y_train, x_train)
     model = model.fit()
 
-    extract = extract_model_data((model, variables))
+    extract = extract_model_data((model, variables, sign_dict))
     return extract
+    # print(extract)
 
 
-def extract_model_data(compute_result: tuple[Any, tuple[str, tuple[str]]]) -> list[dict]:
-    result: dict = {}
+def listen_and_write_to_file(queue, file_path):
+    with open(file_path, "w") as file:
+        while True:
+            message = queue.get()
+            print(message)
+            """
+            file.write("a")
+            file.flush()
+            """
+
+
+import signal
+
+
+def init_worker():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def extract_model_data(compute_result: tuple[Any, tuple[str, tuple[str]], dict]) -> list[dict]:
     model = compute_result[0]
-    variables = compute_result[1]
-    model_coef = model.params
-    model_pvalues = model.pvalues
-    # add names of varaibles
-    result.update({"Dependent": variables[0]})
+    variables: tuple = compute_result[1]
+    sign_dict: dict = compute_result[2]
+    # For efficiency purposes:
+    # only models with positive adjusted R-squared are processes
+    # model with adjusted R-squared less than zero have no statistical significance
+    if model.rsquared_adj > 0:
 
-    for index, item in enumerate(variables[1]):
-        result.update({f"Independent_{index + 1}": item})
+        model_coef = model.params
+        model_pvalues = model.pvalues
+        # add names of varaibles
+        result = dict({"Dependent": variables[0]})
 
-    result.update({"Adj. r-Square": model.rsquared_adj,
-                   "AIC": model.aic,
-                   "F-Pvalue": model.f_pvalue,
-                   "Intercept_cord": model_coef[0],
-                   "Intercept pvalue": model_pvalues[0]})
-    for index, value in enumerate(variables[1]):
-        result.update({f"Independent_{index + 1}_coef": model_coef[index + 1]})
-        result.update({f"Independent_{index + 1}_pvalue": model_pvalues[index + 1]})
+        for index, item in enumerate(variables[1]):
+            result.update({f"Independent_{index + 1}": item})
 
-    return result
+        result.update({"Adj. r-Square": model.rsquared_adj,
+                       "AIC": model.aic,
+                       "F-Pvalue": model.f_pvalue,
+                       "Intercept_cord": model_coef[0],
+                       "Intercept pvalue": model_pvalues[0]})
+
+        sign: list[str] = sign_filter.sign_filter(sign_dict, model_coef[1:], variables[1])
+        print(sign)
+        for index, value in enumerate(variables[1]):
+
+            result.update({f"Independent_{index + 1}_coef": model_coef[index + 1]})
+
+            result.update({f"Independent_{index + 1}_pvalue": model_pvalues[index + 1]})
+
+            result.update({f"Independent_{index + 1}_sign": sign[index]})
+
+
+            res = tuple(x for x in result.values())
+        return result
 
 
 @dataclass
@@ -79,9 +115,6 @@ def test_extract_model_data():
     data_in = (simulated_model, ("a", ("b", "c")))
     result = extract_model_data(data_in)
     print(result)
-
-
-
 
 
 class ComputeModels:

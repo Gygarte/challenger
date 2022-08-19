@@ -39,17 +39,5 @@ def add_output_to_dataframe(self, model_output: RegressionResults, output_templa
     return output_template
 
 
-def output_to_dataframe(output_of_processing: list[dict], sign_dict: dict, type_of_model: int) -> pd.DataFrame:
-    for item in output_of_processing:
-        model_coef: list[float] = [item.get(f"Independent_{index + 1}_coef") for index in range(type_of_model)]
-        model_independent: list[str] = [item.get(f"Independent_{index + 1}") for index in range(type_of_model)]
-        sign: list[str] = sign_filter.sign_filter(sign_dict, model_coef, model_independent)
-
-        # update the outputs with sign
-        try:
-            for index in range(type_of_model):
-                item.update({f"Independent_{index + 1}_sign": sign[index]})
-        except IndexError:
-            item.update({f"Sign Error": "No Sign"})
-
-    return pd.DataFrame(output_of_processing)
+def output_to_dataframe(output_of_processing: list[dict], output_dataframe: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(output_of_processing, columns=output_dataframe.columns.to_list())
